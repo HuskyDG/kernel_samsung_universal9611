@@ -651,6 +651,11 @@ int mms_custom_event_handler(struct mms_ts_info *info, u8 *rbuf, u8 size)
 			if (gesture_id == MMS_GESTURE_ID_FOD_LONG || gesture_id == MMS_GESTURE_ID_FOD_NORMAL) {
 				info->scrub_id = SPONGE_EVENT_TYPE_FOD;
 				input_info(true, &info->client->dev, "%s: FOD: %s\n", __func__, gesture_id ? "normal" : "long");
+#ifndef GRASS_ONEUI
+				input_report_key(info->input_dev, KEY_WAKEUP, 1);
+				input_sync(info->input_dev);
+				input_report_key(info->input_dev, KEY_WAKEUP, 0);
+#endif
 				input_report_key(info->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				input_sync(info->input_dev);
 			} else if (gesture_id == MMS_GESTURE_ID_FOD_RELEASE) {

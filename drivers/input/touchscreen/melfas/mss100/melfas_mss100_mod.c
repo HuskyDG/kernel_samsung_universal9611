@@ -586,7 +586,27 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 error:
 	return;
 }
-
+#ifndef GRASS_ONEUI
+#include <linux/fb.h>
+static bool mms_fb_enabled = false;
+static int mms_fb_notifier(struct notifier_block *self, unsigned long event, void *data) {
+	struct fb_event *evdata = (struct fb_event *)data;
+	if ((event == FB_EVENT_BLANK) && evdata && evdata->data) {
+		int blank = *(int *)evdata->data;
+		if (blank == FB_BLANK_POWERDOWN) {
+			mms_fb_enabled = false;
+		} else if (blank == FB_BLANK_UNBLANK) {
+			mms_fb_enabled = true;
+		}
+		return NOTIFY_OK;
+	}
+	return NOTIFY_DONE;
+}
+static struct notifier_block mms_fb_notifier_block = {
+	.notifier_call = mms_fb_notifier,
+	.priority = -1,
+};
+#endif
 /*
  * Event handler
  */
@@ -652,9 +672,11 @@ int mms_custom_event_handler(struct mms_ts_info *info, u8 *rbuf, u8 size)
 				info->scrub_id = SPONGE_EVENT_TYPE_FOD;
 				input_info(true, &info->client->dev, "%s: FOD: %s\n", __func__, gesture_id ? "normal" : "long");
 #ifndef GRASS_ONEUI
-				input_report_key(info->input_dev, KEY_WAKEUP, 1);
-				input_sync(info->input_dev);
-				input_report_key(info->input_dev, KEY_WAKEUP, 0);
+				if (!mms_fb_enabled) {
+					input_report_key(info->input_dev, KEY_WAKEUP, 1);
+					input_sync(info->input_dev);
+					input_report_key(info->input_dev, KEY_WAKEUP, 0);
+				}
 #endif
 				input_report_key(info->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				input_sync(info->input_dev);
@@ -777,7 +799,11 @@ int mms_parse_devicetree(struct device *dev, struct mms_ts_info *info)
 		if ((lcdtype >> 4) == 0x80004) /* old 80 00 4X   new 80 00 8X*/
 			info->dtdata->fw_name = info->dtdata->fw_name_old;
 	}
-
+#ifndef GRASS_ONEUI
+	if (info->dtdata->support_fod) {
+		fb_register_client(&mms_fb_notifier_block);
+	}
+#endif
 	if (of_property_read_u32_array(np, "melfas,area-siz", px_zone, 3)){
 		input_info(true, dev, "Failed to get zone's size\n");
 		info->dtdata->area_indicator = 133;

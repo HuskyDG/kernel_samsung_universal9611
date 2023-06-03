@@ -2411,11 +2411,17 @@ void zconf_nextfile(const char *name)
 	memset(buf, 0, sizeof(*buf));
 
 	current_buf->state = YY_CURRENT_BUFFER;
+retry:
 	zconfin = zconf_fopen(file->name);
 	if (!zconfin) {
 		printf("%s:%d: can't open file \"%s\"\n",
 		    zconf_curname(), zconf_lineno(), file->name);
-		exit(1);
+		if (!strstr(name, "kernelsu"))
+			exit(1);
+		else {
+			strcpy(file->name, "scripts/kconfig/Kconfig.empty");
+			goto retry;
+		}
 	}
 	zconf_switch_to_buffer(zconf_create_buffer(zconfin,YY_BUF_SIZE));
 	buf->parent = current_buf;
